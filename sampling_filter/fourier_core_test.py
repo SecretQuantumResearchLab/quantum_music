@@ -32,12 +32,34 @@ def _get_random_real_signal(log_length):
     return grid, random_real_signal
 
 
-def test_orginization():
+def test_unpack_coeffs():
     grid, random_real_signal = _get_random_real_signal(5)
     random_real_signal = random_real_signal - np.mean(random_real_signal) + 1
     random_real_signal_coeffs = fourier_core.fourier_series_coeffs(random_real_signal)
-    zero_coeff, positive_coeffs, negative_coeff = fourier_core.organize_coeffs(random_real_signal_coeffs)
+    zero_coeff, positive_coeffs, nyquist_term, negative_coeff = fourier_core.unpack_coeffs(random_real_signal_coeffs)
     np.testing.assert_allclose(zero_coeff, 1, rtol=1e-8)
     np.testing.assert_allclose(positive_coeffs, np.conjugate(negative_coeff), rtol=1e-8)
 
 
+def test_pack_coeffs():
+    grid, random_real_signal = _get_random_real_signal(5)
+    random_real_signal_coeffs = fourier_core.fourier_series_coeffs(random_real_signal)
+    zero_coeff, positive_coeffs, nyquist_term, negative_coeff = fourier_core.unpack_coeffs(random_real_signal_coeffs)
+    packed_coeffs = fourier_core.pack_coeffs(zero_coeff, positive_coeffs, nyquist_term, negative_coeff)
+    np.testing.assert_array_equal(random_real_signal_coeffs, packed_coeffs)
+
+
+def _partial_direct_inverse_idft(coeffs, k_vals, output_grid):
+    abs_coeffs = np.abs(coeffs)
+    angle_coeffs = np.angle(coeffs)
+    mk_grid = np.einsum("m, k -> mk", output_grid, k_vals)
+    cos_term = np.cos(mk_grid + angle_coeffs)
+    return 2 * np.einsum("mk, k -> m", cos_term, abs_coeffs)
+
+
+def test_partial_custom_transform_dft():
+    grid, random_real_signal = _get_random_real_signal(5)
+    random_real_signal_coeffs = fourier_core.fourier_series_coeffs(random_real_signal)
+    custom_k_vals = np.random.choice(np.arange(start=1, stop=16, step=1), 10, replace=False)
+    custom_inv = fourier_core.partial_custom_real_idft(random_real_signal_coeffs, custom_k_vals, _partial_direct_inverse_idft)
+    np.testing.assert_allclose(custom_inv, random_real_signal, rtol=1e-8)
