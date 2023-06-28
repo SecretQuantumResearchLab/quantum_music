@@ -39,4 +39,4 @@ def partial_custom_real_idft(all_fft_coeffs, custom_k_vals, custom_idft_fn):
     zeroed_positive = np.copy(positive_terms)
     zeroed_positive[..., reindex_custom_k] = 0
     fft_part = np.fft.ifft(pack_coeffs(zero_term, zeroed_positive, nyquist_term, np.conjugate(zeroed_positive)), norm="forward")
-    return fft_part + custom_part
+    return np.real_if_close(fft_part + custom_part)
